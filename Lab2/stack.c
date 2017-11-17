@@ -145,13 +145,12 @@ stack_pop(stack_t *stack/* Make your own signature */)
 	int condition = 1;
 	while( condition ) {
 		node_t *head = stack->head;
-		int counter = stack->size;
 		if (head == NULL ) {
 			return -1;
 		}
 		node_t* new_head = head->next;
 		if (cas(&stack->head,head,new_head)==head) {
-			return head->value;
+			condition = 0;
 		}
 	}
 	/** **/
