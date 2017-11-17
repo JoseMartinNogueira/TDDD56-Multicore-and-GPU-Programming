@@ -42,6 +42,7 @@ struct stack
   int change_this_member;
   /**add by us**/
   struct node *head;
+  int size;
   #if NON_BLOCKING == 0
   pthread_mutex_t lock;
   #endif
