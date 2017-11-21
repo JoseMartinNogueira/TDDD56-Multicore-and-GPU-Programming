@@ -28,14 +28,27 @@ unsigned char average_kernel(int ox, int oy, size_t stride, const unsigned char 
 
 unsigned char average_kernel_1d(int o, size_t stride, const unsigned char *m, size_t elemPerPx)
 {
-	// your code here
+	float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	float res = 0;
+	for (int y = -o; y <= o; ++y)
+		for (int x = -o; x <= o; x += elemPerPx)
+			res += m[y*(int)stride+x];
+	return res * scaling;
 }
 
 
 
 unsigned char gaussian_kernel(int o, size_t stride, const unsigned char *m, const skepu2::Vec<float> stencil, size_t elemPerPx)
 {
-	// your code here
+	//float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	float n =0;
+	float res = 0;
+	for (int y = -o; y <= o; ++y)
+		for (int x = -o; x <= o; x += elemPerPx){
+			res += stencil[n]*m[y*(int)stride+x];
+			n++;
+		}
+	return res;
 }
 
 
