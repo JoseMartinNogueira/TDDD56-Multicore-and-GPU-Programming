@@ -11,15 +11,19 @@
 
 /* SkePU user functions */
 
-/*
-float userfunction(...)
+
+float add(float a,float b)
 {
-	// your code here
+	return a+b;
+}
+
+float mul(float a,float b)
+{
+	return a*b;
 }
 
 // more user functions...
 
-*/
 
 
 int main(int argc, const char* argv[])
@@ -32,19 +36,23 @@ int main(int argc, const char* argv[])
 	
 	const size_t size = std::stoul(argv[1]);
 	auto spec = skepu2::BackendSpec{skepu2::Backend::typeFromString(argv[2])};
-//	spec.setCPUThreads(<integer value>);
+	spec.setCPUThreads(<4>);
 	
 	
 	/* Skeleton instances */
-//	auto instance = skepu2::Map<???>(userfunction);
-// ...
+	auto instanceMR = skepu2::MapReduce<2>(mul , add);
+	auto instanceM  = skepu2::Map<2>(mul);
+	auto instanceR  = skepu2::Reduce(add);
 	
 	/* Set backend (important, do for all instances!) */
-//	instance.setBackend(spec);
+	instanceMR.setBackend(spec);
+	instanceM.setBackend(spec);
+	instanceR.setBackend(spec);
 	
 	/* SkePU containers */
-	skepu2::Vector<float> v1(size, 1.0f), v2(size, 2.0f);
-	
+	skepu2::Vector<float> v1(size, 1.0f), v2(size, 2.0f), v3(size, 3.0f);
+	//v1.randomize(0, 9);
+	//v2.randomize(0, 9);
 	
 	/* Compute and measure time */
 	float resComb, resSep;
@@ -52,11 +60,15 @@ int main(int argc, const char* argv[])
 	auto timeComb = skepu2::benchmark::measureExecTime([&]
 	{
 		// your code here
+		resComb=instance(v1, v2);
 	});
 	
 	auto timeSep = skepu2::benchmark::measureExecTime([&]
 	{
 		// your code here
+		instanceM(v3,v1,v2);
+		resSep=instanceR(v3);
+		
 	});
 	
 	std::cout << "Time Combined: " << (timeComb.count() / 10E6) << " seconds.\n";
