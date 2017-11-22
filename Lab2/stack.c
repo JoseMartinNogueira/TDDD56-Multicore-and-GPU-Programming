@@ -100,7 +100,7 @@ stack_push(stack_t *stack, int value/* Make your own signature */)
   while(condition){
 	node_t *old_top = stack->head;
 	new_node->next=old_top;
-	if(cas(&stack->head,old_top,new_node)==old_top){
+	if(cas((size_t *)&stack->head,(size_t)old_top,(size_t)new_node)==(size_t)old_top){
 		condition=0;
 	}
 	/** **/
@@ -142,26 +142,102 @@ stack_pop(stack_t *stack/* Make your own signature */)
 #elif NON_BLOCKING == 1
   // Implement a harware CAS-based stack
 	/** add by us **/
-	
+	int result;
 	int condition = 1;
 	while( condition ) {
 		node_t *old_head = stack->head;
-		if (head == NULL ) {
+		if (old_head == NULL ) {
 			result = -1;
 			condition=0; //TODO ask
 		}else {
-			node_t* old_next = head->next;
-			if (cas(&stack->head,old_head,old_next)==old_head) {
+			node_t* old_next = old_head->next;
+			if (cas((size_t *)&stack->head,(size_t)old_head,(size_t)old_next)==(size_t)old_head) {
 				condition = 0;
+				free(old_head);
 			}
 		}
 	}
+	
 	/** **/
 #else
+
   /*** Optional ***/
   // Implement a software CAS-based stack
 #endif
 
   return result;
 }
+#if MEASURE == 0
+void
+stack_aba_00( stack_t* stack, int* lock0, int* lock1 )
+{
+  int w=0;
+  int condition = 1;
+  while( condition ) {
+		node_t *old_head = stack->head;
+		if (old_head == NULL ) {
+			condition=0; 
+		}else {
+			node_t* old_next = old_head->next;
+			
+			*lock1=1;
+			while(*lock0==0){
+				w++;
+			}		
+			if (cas((size_t *)&stack->head,(size_t)old_head,(size_t)old_next)==(size_t)old_head) {
+				condition = 0;
+				free(old_head);
+			}
+		}
+  }	
+}
+void
+stack_aba_11( stack_t* stack, int* lock0, int* lock1 )
+{
+	int w=0;
+	while(*lock1==0){
+		w++;
+	}
+	node_t *A;
+	//node_t *B;
+	int condition = 1;
+	while( condition ) {
+		node_t *old_head = stack->head;
+		if (old_head == NULL ) {
+			condition=0; //TODO ask
+		}else {
+			node_t* old_next = old_head->next;
+			if (cas((size_t *)&stack->head,(size_t)old_head,(size_t)old_next)==(size_t)old_head) {
+				condition = 0;
+				A=old_head;
+			}
+		}
+	}
+	condition=1;
+	while( condition ) {
+		node_t *old_head = stack->head;
+		if (old_head == NULL ) {
+			condition=0; //TODO ask
+		}else {
+			node_t* old_next = old_head->next;
+			if (cas((size_t *)&stack->head,(size_t)old_head,(size_t)old_next)==(size_t)old_head) {
+				condition = 0;
+				//B=old_head;
+			}
+		}
+	}
+	
+	condition=1;
+	while(condition){
+		node_t *old_top = stack->head;
+		A->next=old_top;
+		if(cas((size_t *)&stack->head,(size_t)old_top,(size_t)A)==(size_t)old_top){
+			condition=0;
+		}
+	}
+	*lock0=1;
+	
+}
+#endif
+
 

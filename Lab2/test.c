@@ -146,7 +146,9 @@ test_setup()
   // Allocate a new stack and reset its values
   stack = malloc(sizeof(stack_t));
   /** add by us **/
+  #if NON_BLOCKING == 0 
   pthread_mutex_init(&stack->lock,NULL);
+  #endif
   #if MEASURE == 1 //pop
   int i,j;
   for (i=0; i<MAX_PUSH_POP; i++){
@@ -212,6 +214,25 @@ test_pop_safe()
 // 3 Threads should be enough to raise and detect the ABA problem
 #define ABA_NB_THREADS 3
 
+#if MEASURE==0
+int lock0;
+int lock1;
+
+void*
+stack_aba_0(void* arg)
+{
+	stack_aba_00( stack, &lock0, &lock1);	
+	return NULL;
+}
+
+void*
+stack_aba_1(void* arg)
+{
+	stack_aba_11( stack, &lock0, &lock1);
+	return NULL;
+}
+#endif
+
 int
 test_aba()
 {
@@ -219,6 +240,29 @@ test_aba()
   int success, aba_detected = 0;
   // Write here a test for the ABA problem
   success = aba_detected;
+  #if MEASURE==0
+  pthread_t thread[2];
+  pthread_attr_t attr;
+  //stack_measure_arg_t arg[2];
+  pthread_attr_init(&attr);
+  
+  lock0=0;
+  lock1=1;
+  
+  stack_push(stack, 3);
+  stack_push(stack, 2);
+  stack_push(stack, 1);
+  
+  //arg[0].id = 0;
+  //arg[1].id = 1;
+  pthread_create(&thread[0], &attr, stack_aba_0, NULL);
+  pthread_create(&thread[1], &attr, stack_aba_1, NULL);
+  
+  
+  pthread_join(thread[0], NULL);
+  pthread_join(thread[1], NULL);
+  #endif
+  success=1;
   return success;
 #else
   // No ABA is possible with lock-based synchronization. Let the test succeed only
@@ -359,16 +403,16 @@ setbuf(stdout, NULL);
           (int) t_start[i].tv_sec, t_start[i].tv_nsec, (int) t_stop[i].tv_sec,
           t_stop[i].tv_nsec);
     }
-   
+    /**
    #if MEASURE==1
-   //int j;
-	//for (i=0; i<NB_THREADS; i++){
-		//for (j=0; j<MAX_PUSH_POP/NB_THREADS; j++){
-			//printf("t->%i|v->%i\n",i,pool[i][j]);
-		//}
-	//}
+   int j;
+	for (i=0; i<NB_THREADS; i++){
+		for (j=0; j<MAX_PUSH_POP/NB_THREADS; j++){
+			printf("t->%i|v->%i\n",i,pool[i][j]);
+		}
+	}
    #endif
-   
+   **/
 #endif
 
   return 0;

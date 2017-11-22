@@ -51,7 +51,7 @@ typedef struct stack stack_t;
 
 
 int stack_push(stack_t *stack, int value/* Make your own signature */);
-int stack_pop(stack_t *stack/* Make your own signature */);
+int stack_pop(stack_t *stack, stack_t *pool/* Make your own signature */);
 
 /* Use this to check if your stack is in a consistent state from time to time */
 int stack_check(stack_t *stack);
@@ -59,9 +59,5 @@ int stack_check(stack_t *stack);
 
 /** add by us **/
 void print_stack(stack_t *stack);
-#if MEASURE==0
-void stack_aba_00( stack_t* stack, int* lock0, int* lock1 );
-void stack_aba_11( stack_t* stack, int* lock0, int* lock1 );
-#endif
 /** **/
 #endif /* STACK_H */
