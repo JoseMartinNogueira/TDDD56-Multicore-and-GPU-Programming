@@ -90,7 +90,7 @@ stack_push(stack_t *stack, int value/* Make your own signature */)
 	stack->head = new_node;
 	pthread_mutex_unlock(&stack->lock);
 		
-  /** **/
+ 
 #elif NON_BLOCKING == 1
   // Implement a harware CAS-based stack
   int condition=1;
@@ -103,7 +103,7 @@ stack_push(stack_t *stack, int value/* Make your own signature */)
 	if(cas(&stack->head,old_top,new_node)==old_top){
 		condition=0;
 	}
-	
+	/** **/
   }
   
 #else
@@ -142,15 +142,18 @@ stack_pop(stack_t *stack/* Make your own signature */)
 #elif NON_BLOCKING == 1
   // Implement a harware CAS-based stack
 	/** add by us **/
+	
 	int condition = 1;
 	while( condition ) {
-		node_t *head = stack->head;
+		node_t *old_head = stack->head;
 		if (head == NULL ) {
-			return -1;
-		}
-		node_t* new_head = head->next;
-		if (cas(&stack->head,head,new_head)==head) {
-			condition = 0;
+			result = -1;
+			condition=0; //TODO ask
+		}else {
+			node_t* old_next = head->next;
+			if (cas(&stack->head,old_head,old_next)==old_head) {
+				condition = 0;
+			}
 		}
 	}
 	/** **/

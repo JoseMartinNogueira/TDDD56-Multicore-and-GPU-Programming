@@ -351,7 +351,7 @@ setbuf(stdout, NULL);
   clock_gettime(CLOCK_MONOTONIC, &stop);
 
   // Print out results
-  print_stack(stack);
+  //print_stack(stack);
   for (i = 0; i < NB_THREADS; i++)
     {
       printf("%i %i %li %i %li %i %li %i %li\n", i, (int) start.tv_sec,
@@ -359,16 +359,16 @@ setbuf(stdout, NULL);
           (int) t_start[i].tv_sec, t_start[i].tv_nsec, (int) t_stop[i].tv_sec,
           t_stop[i].tv_nsec);
     }
-    /**
+   
    #if MEASURE==1
-   int j;
-	for (i=0; i<NB_THREADS; i++){
-		for (j=0; j<MAX_PUSH_POP/NB_THREADS; j++){
-			printf("t->%i|v->%i\n",i,pool[i][j]);
-		}
-	}
+   //int j;
+	//for (i=0; i<NB_THREADS; i++){
+		//for (j=0; j<MAX_PUSH_POP/NB_THREADS; j++){
+			//printf("t->%i|v->%i\n",i,pool[i][j]);
+		//}
+	//}
    #endif
-   **/
+   
 #endif
 
   return 0;
