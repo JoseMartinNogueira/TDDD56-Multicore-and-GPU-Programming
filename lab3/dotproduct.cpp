@@ -36,7 +36,7 @@ int main(int argc, const char* argv[])
 	
 	const size_t size = std::stoul(argv[1]);
 	auto spec = skepu2::BackendSpec{skepu2::Backend::typeFromString(argv[2])};
-	spec.setCPUThreads(<4>);
+	spec.setCPUThreads(4);
 	
 	
 	/* Skeleton instances */
@@ -60,7 +60,7 @@ int main(int argc, const char* argv[])
 	auto timeComb = skepu2::benchmark::measureExecTime([&]
 	{
 		// your code here
-		resComb=instance(v1, v2);
+		resComb=instanceMR(v1, v2);
 	});
 	
 	auto timeSep = skepu2::benchmark::measureExecTime([&]
