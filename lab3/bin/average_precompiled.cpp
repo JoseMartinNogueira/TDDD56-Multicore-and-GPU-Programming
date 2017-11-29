@@ -90,14 +90,14 @@ constexpr skepu2::AccessMode skepu2_userfunction_conv_average_kernel::anyAccessM
 
 unsigned char average_kernel_1d(int o, size_t stride, const unsigned char *m, size_t elemPerPx)
 {
-	float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	float scaling = 1.0 / ((o/elemPerPx*2+1));
 	float res = 0;
-	for (int y = -o; y <= o; ++y)
-		for (int x = -o; x <= o; x += elemPerPx)
-			res += m[y*(int)stride+x];
+	for (int x = -o; x <= o; x += elemPerPx) {
+		res += m[(int)stride*x];	
+	}
 	return res * scaling;
 }
-struct skepu2_userfunction_conv_average_kernel_1d
+struct skepu2_userfunction_conv1D_average_kernel_1d
 {
 constexpr static size_t totalArity = 4;
 constexpr static bool indexed = 0;
@@ -120,11 +120,11 @@ constexpr static bool prefersMatrix = 0;
 #define VARIANT_CUDA(block)
 static inline SKEPU_ATTRIBUTE_FORCE_INLINE unsigned char OMP(int o, size_t stride, const unsigned char *m, size_t elemPerPx)
 {
-	float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	float scaling = 1.0 / ((o/elemPerPx*2+1));
 	float res = 0;
-	for (int y = -o; y <= o; ++y)
-		for (int x = -o; x <= o; x += elemPerPx)
-			res += m[y*(int)stride+x];
+	for (int x = -o; x <= o; x += elemPerPx) {
+		res += m[(int)stride*x];	
+	}
 	return res * scaling;
 }
 #undef SKEPU_USING_BACKEND_OMP
@@ -138,17 +138,17 @@ static inline SKEPU_ATTRIBUTE_FORCE_INLINE unsigned char OMP(int o, size_t strid
 #define VARIANT_CUDA(block) block
 static inline SKEPU_ATTRIBUTE_FORCE_INLINE unsigned char CPU(int o, size_t stride, const unsigned char *m, size_t elemPerPx)
 {
-	float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	float scaling = 1.0 / ((o/elemPerPx*2+1));
 	float res = 0;
-	for (int y = -o; y <= o; ++y)
-		for (int x = -o; x <= o; x += elemPerPx)
-			res += m[y*(int)stride+x];
+	for (int x = -o; x <= o; x += elemPerPx) {
+		res += m[(int)stride*x];	
+	}
 	return res * scaling;
 }
 #undef SKEPU_USING_BACKEND_CPU
 };
 
-constexpr skepu2::AccessMode skepu2_userfunction_conv_average_kernel_1d::anyAccessMode[];
+constexpr skepu2::AccessMode skepu2_userfunction_conv1D_average_kernel_1d::anyAccessMode[];
 
 
 
@@ -156,19 +156,89 @@ constexpr skepu2::AccessMode skepu2_userfunction_conv_average_kernel_1d::anyAcce
 unsigned char gaussian_kernel(int o, size_t stride, const unsigned char *m, const skepu2::Vec<float> stencil, size_t elemPerPx)
 {
 	//float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
-	float n =0;
+	int n =0;
 	float res = 0;
-	for (int y = -o; y <= o; ++y)
-		for (int x = -o; x <= o; x += elemPerPx){
-			res += stencil[n]*m[y*(int)stride+x];
-			n++;
-		}
-	return res;
+	float stencilAdd = 0;
+	float aux = 0;
+	for (int x = -o; x <= o; x += elemPerPx){
+		aux = stencil.data[n];
+		res += aux*m[(int)stride*x];
+		stencilAdd += aux;
+		n++;
+	}
+	return res / stencilAdd;
 }
+struct skepu2_userfunction_convGauss_gaussian_kernel
+{
+constexpr static size_t totalArity = 5;
+constexpr static bool indexed = 0;
+using ElwiseArgs = std::tuple<int, size_t, const unsigned char *>;
+using ContainerArgs = std::tuple<const skepu2::Vec<float>>;
+using UniformArgs = std::tuple<size_t>;
+constexpr static skepu2::AccessMode anyAccessMode[] = {
+skepu2::AccessMode::Read, };
+
+using Ret = unsigned char;
+
+constexpr static bool prefersMatrix = 0;
+
+#define SKEPU_USING_BACKEND_OMP 1
+#undef VARIANT_CPU
+#undef VARIANT_OPENMP
+#undef VARIANT_CUDA
+#define VARIANT_CPU(block)
+#define VARIANT_OPENMP(block) block
+#define VARIANT_CUDA(block)
+static inline SKEPU_ATTRIBUTE_FORCE_INLINE unsigned char OMP(int o, size_t stride, const unsigned char *m, const skepu2::Vec<float> stencil, size_t elemPerPx)
+{
+	//float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	int n =0;
+	float res = 0;
+	float stencilAdd = 0;
+	float aux = 0;
+	for (int x = -o; x <= o; x += elemPerPx){
+		aux = stencil.data[n];
+		res += aux*m[(int)stride*x];
+		stencilAdd += aux;
+		n++;
+	}
+	return res / stencilAdd;
+}
+#undef SKEPU_USING_BACKEND_OMP
+
+#define SKEPU_USING_BACKEND_CPU 1
+#undef VARIANT_CPU
+#undef VARIANT_OPENMP
+#undef VARIANT_CUDA
+#define VARIANT_CPU(block) block
+#define VARIANT_OPENMP(block)
+#define VARIANT_CUDA(block) block
+static inline SKEPU_ATTRIBUTE_FORCE_INLINE unsigned char CPU(int o, size_t stride, const unsigned char *m, const skepu2::Vec<float> stencil, size_t elemPerPx)
+{
+	//float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	int n =0;
+	float res = 0;
+	float stencilAdd = 0;
+	float aux = 0;
+	for (int x = -o; x <= o; x += elemPerPx){
+		aux = stencil.data[n];
+		res += aux*m[(int)stride*x];
+		stencilAdd += aux;
+		n++;
+	}
+	return res / stencilAdd;
+}
+#undef SKEPU_USING_BACKEND_CPU
+};
+
+constexpr skepu2::AccessMode skepu2_userfunction_convGauss_gaussian_kernel::anyAccessMode[];
 
 
 
 
+
+
+#include "average_precompiled_OverlapKernel_gaussian_kernel_cl_source.inl"
 
 #include "average_precompiled_OverlapKernel_average_kernel_1d_cl_source.inl"
 
@@ -187,7 +257,7 @@ int main(int argc, char* argv[])
 	const int radius = atoi(argv[3]);
 	auto spec = skepu2::BackendSpec{skepu2::Backend::typeFromString(argv[4])};
 	
-	// Create the full path for writing the image.
+	// Create the full path for writing the image.spec
 	std::stringstream ss;
 	ss << (2 * radius + 1) << "x" << (2 * radius + 1);
 	std::string outputFile = outputFileName + ss.str();
@@ -198,11 +268,17 @@ int main(int argc, char* argv[])
 	skepu2::Matrix<unsigned char> inputMatrixPad = ReadAndPadPngFileToMatrix(inputFileName, radius, colorType, imageInfo);
 	skepu2::Matrix<unsigned char> inputMatrix = ReadPngFileToMatrix(inputFileName, colorType, imageInfo);
 	skepu2::Matrix<unsigned char> outputMatrix(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
-	// more containers...?
+	skepu2::Matrix<unsigned char> auxMatrixSeparable(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+	skepu2::Matrix<unsigned char> auxMatrixGauss(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+	skepu2::Matrix<unsigned char> outputMatrixSeparable(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+	skepu2::Matrix<unsigned char> outputMatrixGauss(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+// more containers...?
 	
 	// Original version
 	{
 		skepu2::backend::MapOverlap2D<skepu2_userfunction_conv_average_kernel, bool, CLWrapperClass_average_precompiled_Overlap2DKernel_average_kernel> conv(false);
+	//	conv.setOverlapMode(skepu2::Overlap::ColWise);
+
 		conv.setOverlap(radius, radius  * imageInfo.elementsPerPixel);
 		conv.setBackend(spec);
 	
@@ -215,20 +291,27 @@ int main(int argc, char* argv[])
 		std::cout << "Time for combined: " << (timeTaken.count() / 10E6) << "\n";
 	}
 	
-	
+
 	// Separable version
 	// use conv.setOverlapMode(skepu2::Overlap::[ColWise RowWise]);
 	// and conv.setOverlap(<integer>)
 	{
-		skepu2::backend::MapOverlap1D<skepu2_userfunction_conv_average_kernel_1d, bool, bool, bool, bool, CLWrapperClass_average_precompiled_OverlapKernel_average_kernel_1d> conv(false, false, false, false);
-		conv.setBackend(spec);
+		skepu2::backend::MapOverlap1D<skepu2_userfunction_conv1D_average_kernel_1d, bool, bool, bool, bool, CLWrapperClass_average_precompiled_OverlapKernel_average_kernel_1d> conv1D(false, false, false, false);
+		conv1D.setOverlapMode(skepu2::Overlap::RowWise);
+		conv1D.setOverlap(radius * imageInfo.elementsPerPixel);
+		conv1D.setBackend(spec);
 	
 		auto timeTaken = skepu2::benchmark::measureExecTime([&]
 		{
-			// your code here
+			conv1D(auxMatrixSeparable, inputMatrix, imageInfo.elementsPerPixel);
+			conv1D.setOverlapMode(skepu2::Overlap::ColWise);
+			conv1D.setOverlap(radius);
+			conv1D.setBackend(spec);
+			conv1D(outputMatrixSeparable, auxMatrixSeparable, 1);
+
 		});
 		
-	//	WritePngFileMatrix(outputMatrix, outputFile + "-separable.png", colorType, imageInfo);
+		WritePngFileMatrix(outputMatrixSeparable, outputFile + "-separable.png", colorType, imageInfo);
 		std::cout << "Time for separable: " << (timeTaken.count() / 10E6) << "\n";
 	}
 	
@@ -236,15 +319,25 @@ int main(int argc, char* argv[])
 	// Separable gaussian
 	{
 		skepu2::Vector<float> stencil = sampleGaussian(radius);
-			
+		skepu2::backend::MapOverlap1D<skepu2_userfunction_convGauss_gaussian_kernel, bool, bool, bool, bool, CLWrapperClass_average_precompiled_OverlapKernel_gaussian_kernel> convGauss(false, false, false, false);
+		convGauss.setOverlapMode(skepu2::Overlap::RowWise);
+		convGauss.setOverlap(radius * imageInfo.elementsPerPixel);
+		convGauss.setBackend(spec);
+		
+		
 		// skeleton instance, etc here (remember to set backend)
 	
 		auto timeTaken = skepu2::benchmark::measureExecTime([&]
 		{
-			// your code here
+			convGauss(auxMatrixGauss, inputMatrix, stencil, imageInfo.elementsPerPixel);
+			convGauss.setOverlapMode(skepu2::Overlap::ColWise);
+			convGauss.setOverlap(radius);
+			convGauss.setBackend(spec);
+			convGauss(outputMatrixGauss, auxMatrixGauss, stencil, 1);
+
 		});
 	
-	//	WritePngFileMatrix(outputMatrix, outputFile + "-gaussian.png", colorType, imageInfo);
+		WritePngFileMatrix(outputMatrixGauss, outputFile + "-gaussian.png", colorType, imageInfo);
 		std::cout << "Time for gaussian: " << (timeTaken.count() / 10E6) << "\n";
 	}
 	

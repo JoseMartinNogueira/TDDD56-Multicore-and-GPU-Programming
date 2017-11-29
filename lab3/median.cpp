@@ -16,10 +16,36 @@
 
 #include "support.h"
 
-
+//source
+//https://stackoverflow.com/questions/33964676/find-the-median-of-an-unsorted-array-without-sorting
 unsigned char median_kernel(int ox, int oy, size_t stride, const unsigned char *image, size_t elemPerPx)
 {
-	// your code here
+	int size=(ox/elemPerPx*2+1)*(oy*2+1);
+	int halfSize=size/2;
+
+	float median = 255;
+	int count=0;
+	int memCount=size;
+	float memMedian=0;
+	
+
+	for (int y = -oy; y <= oy; ++y){
+		for (int x = -ox; x <= ox; x += elemPerPx){
+			memMedian=image[y*(int)stride+x];
+			for (int y2 = -oy; y2 <= oy; ++y2){
+				for (int x2 = -ox; x2 <= ox; x2 += elemPerPx){
+					if(image[y2*(int)stride+x2] <= memMedian)
+						count ++;	
+				}
+			}
+			if(count > halfSize &&  count<=memCount){
+				median=memMedian;
+				memCount=count;
+			}
+			count=0;
+		}
+	}
+	return median;
 }
 
 

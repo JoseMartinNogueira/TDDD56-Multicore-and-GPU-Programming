@@ -28,11 +28,11 @@ unsigned char average_kernel(int ox, int oy, size_t stride, const unsigned char 
 
 unsigned char average_kernel_1d(int o, size_t stride, const unsigned char *m, size_t elemPerPx)
 {
-	float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
+	float scaling = 1.0 / ((o/elemPerPx*2+1));
 	float res = 0;
-	for (int y = -o; y <= o; ++y)
-		for (int x = -o; x <= o; x += elemPerPx)
-			res += m[y*(int)stride+x];
+	for (int x = -o; x <= o; x += elemPerPx) {
+		res += m[(int)stride*x];	
+	}
 	return res * scaling;
 }
 
@@ -41,14 +41,17 @@ unsigned char average_kernel_1d(int o, size_t stride, const unsigned char *m, si
 unsigned char gaussian_kernel(int o, size_t stride, const unsigned char *m, const skepu2::Vec<float> stencil, size_t elemPerPx)
 {
 	//float scaling = 1.0 / ((o/elemPerPx*2+1)*(o*2+1));
-	float n =0;
+	int n =0;
 	float res = 0;
-	for (int y = -o; y <= o; ++y)
-		for (int x = -o; x <= o; x += elemPerPx){
-			res += stencil[n]*m[y*(int)stride+x];
-			n++;
-		}
-	return res;
+	float stencilAdd = 0;
+	float aux = 0;
+	for (int x = -o; x <= o; x += elemPerPx){
+		aux = stencil.data[n];
+		res += aux*m[(int)stride*x];
+		stencilAdd += aux;
+		n++;
+	}
+	return res / stencilAdd;
 }
 
 
@@ -68,7 +71,7 @@ int main(int argc, char* argv[])
 	const int radius = atoi(argv[3]);
 	auto spec = skepu2::BackendSpec{skepu2::Backend::typeFromString(argv[4])};
 	
-	// Create the full path for writing the image.
+	// Create the full path for writing the image.spec
 	std::stringstream ss;
 	ss << (2 * radius + 1) << "x" << (2 * radius + 1);
 	std::string outputFile = outputFileName + ss.str();
@@ -79,11 +82,17 @@ int main(int argc, char* argv[])
 	skepu2::Matrix<unsigned char> inputMatrixPad = ReadAndPadPngFileToMatrix(inputFileName, radius, colorType, imageInfo);
 	skepu2::Matrix<unsigned char> inputMatrix = ReadPngFileToMatrix(inputFileName, colorType, imageInfo);
 	skepu2::Matrix<unsigned char> outputMatrix(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
-	// more containers...?
+	skepu2::Matrix<unsigned char> auxMatrixSeparable(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+	skepu2::Matrix<unsigned char> auxMatrixGauss(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+	skepu2::Matrix<unsigned char> outputMatrixSeparable(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+	skepu2::Matrix<unsigned char> outputMatrixGauss(imageInfo.height, imageInfo.width * imageInfo.elementsPerPixel, 120);
+// more containers...?
 	
 	// Original version
 	{
 		auto conv = skepu2::MapOverlap(average_kernel);
+	//	conv.setOverlapMode(skepu2::Overlap::ColWise);
+
 		conv.setOverlap(radius, radius  * imageInfo.elementsPerPixel);
 		conv.setBackend(spec);
 	
@@ -96,20 +105,27 @@ int main(int argc, char* argv[])
 		std::cout << "Time for combined: " << (timeTaken.count() / 10E6) << "\n";
 	}
 	
-	
+
 	// Separable version
 	// use conv.setOverlapMode(skepu2::Overlap::[ColWise RowWise]);
 	// and conv.setOverlap(<integer>)
 	{
-		auto conv = skepu2::MapOverlap(average_kernel_1d);
-		conv.setBackend(spec);
+		auto conv1D = skepu2::MapOverlap(average_kernel_1d);
+		conv1D.setOverlapMode(skepu2::Overlap::RowWise);
+		conv1D.setOverlap(radius * imageInfo.elementsPerPixel);
+		conv1D.setBackend(spec);
 	
 		auto timeTaken = skepu2::benchmark::measureExecTime([&]
 		{
-			// your code here
+			conv1D(auxMatrixSeparable, inputMatrix, imageInfo.elementsPerPixel);
+			conv1D.setOverlapMode(skepu2::Overlap::ColWise);
+			conv1D.setOverlap(radius);
+			conv1D.setBackend(spec);
+			conv1D(outputMatrixSeparable, auxMatrixSeparable, 1);
+
 		});
 		
-	//	WritePngFileMatrix(outputMatrix, outputFile + "-separable.png", colorType, imageInfo);
+		WritePngFileMatrix(outputMatrixSeparable, outputFile + "-separable.png", colorType, imageInfo);
 		std::cout << "Time for separable: " << (timeTaken.count() / 10E6) << "\n";
 	}
 	
@@ -117,15 +133,25 @@ int main(int argc, char* argv[])
 	// Separable gaussian
 	{
 		skepu2::Vector<float> stencil = sampleGaussian(radius);
-			
+		auto convGauss = skepu2::MapOverlap(gaussian_kernel);
+		convGauss.setOverlapMode(skepu2::Overlap::RowWise);
+		convGauss.setOverlap(radius * imageInfo.elementsPerPixel);
+		convGauss.setBackend(spec);
+		
+		
 		// skeleton instance, etc here (remember to set backend)
 	
 		auto timeTaken = skepu2::benchmark::measureExecTime([&]
 		{
-			// your code here
+			convGauss(auxMatrixGauss, inputMatrix, stencil, imageInfo.elementsPerPixel);
+			convGauss.setOverlapMode(skepu2::Overlap::ColWise);
+			convGauss.setOverlap(radius);
+			convGauss.setBackend(spec);
+			convGauss(outputMatrixGauss, auxMatrixGauss, stencil, 1);
+
 		});
 	
-	//	WritePngFileMatrix(outputMatrix, outputFile + "-gaussian.png", colorType, imageInfo);
+		WritePngFileMatrix(outputMatrixGauss, outputFile + "-gaussian.png", colorType, imageInfo);
 		std::cout << "Time for gaussian: " << (timeTaken.count() / 10E6) << "\n";
 	}
 	
