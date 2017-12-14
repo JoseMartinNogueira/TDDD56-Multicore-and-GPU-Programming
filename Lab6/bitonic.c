@@ -25,7 +25,7 @@
 #include "milli.h"
 
 // Size of data!
-#define kDataLength 1024
+#define kDataLength (1024*3)
 #define MAXPRINTSIZE 16
 
 unsigned int *generateRandomData(unsigned int length)
@@ -66,19 +66,52 @@ void runKernel(cl_kernel kernel, int threads, cl_mem data, unsigned int length)
 	else            localWorkSize  = 512;
 		globalWorkSize = threads;
 	
-	// set the args values
-	ciErrNum  = clSetKernelArg(kernel, 0, sizeof(cl_mem),  (void *) &data);
-	ciErrNum |= clSetKernelArg(kernel, 1, sizeof(cl_uint), (void *) &length);
-	printCLError(ciErrNum,8);
+	int kStart = 2;
+	int kEnd = localWorkSize;
+	int jStart = kStart >> 1;
+	int jEnd = 0;
 	
-	// Run kernel
-	cl_event event;
-	ciErrNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &event);
-	printCLError(ciErrNum,9);
+	int condition = 1;
 	
-	// Synch
-	clWaitForEvents(1, &event);
-	printCLError(ciErrNum,10);
+	while( kStart <= length ) {
+		while( condition == 1 ) {
+			if( (jEnd << 1)  < localWorkSize ) {
+				jEnd = 0;
+				condition = 0;
+			}
+			
+			
+			// set the args values
+			ciErrNum  = clSetKernelArg(kernel, 0, sizeof(cl_mem),  (void *) &data);
+			ciErrNum |= clSetKernelArg(kernel, 1, sizeof(cl_uint), (void *) &kStart);
+			ciErrNum |= clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *) &kEnd);
+			ciErrNum |= clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *) &jStart);
+			ciErrNum |= clSetKernelArg(kernel, 4, sizeof(cl_uint), (void *) &jEnd);
+			printCLError(ciErrNum,8);
+			
+			// Run kernel
+			cl_event event;
+			ciErrNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &event);
+			printCLError(ciErrNum,9);
+			
+			// Synch
+			clWaitForEvents(1, &event);
+			printCLError(ciErrNum,10);
+			
+			jStart = jStart >> 1;
+			jEnd = jStart >> 1;
+			
+		}
+		
+		kStart = kEnd << 1;
+		kEnd = kStart;
+		jStart = kEnd >> 1;
+		jEnd = jStart >> 1;
+		condition = 1;
+		
+	}
+	
+	
 }
 
 
