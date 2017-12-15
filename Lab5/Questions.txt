@@ -1,0 +1,62 @@
+QUESTION 1: How much data did you put in shared memory?
+	- BlockDim.x*BlockDim.y*3
+QUESTION 2: How much data does each thread copy to shared memory?
+	- One pixel RGB (3 unsigned ints)
+QUESTION 3: How did you handle the necessary overlap between the blocks?
+	- int x = .... - blockIdx.x * KERNELSIZE *2;
+QUESTION 4: If we would like to increase the block size, about how big blocks would be safe to use in this case? Why?
+	- 32*32 because of hardware limitations
+
+QUESTION 5: How much speedup did you get over the naive version? For what filter size?
+
+naive
+filter size / time(ms)		
+	2			80
+	5			150
+	7			210
+
+ours
+filter size / time(ms)		
+	2			55
+	5			56
+	7			63
+
+
+QUESTION 6: Is your access to global memory coalesced? What should you do to get that?
+	- It is not because of RGB, it can be done but it takes to much work.
+Separate the image in 3 (red,green,blue) compute them separately and merging them afterwards.
+
+QUESTION 7: How much speedup did you get over the non-separated? For what filter size?
+
+shared
+filter size / time(ms)		
+	2			55
+	5			56
+	7			63
+separated
+filter size / time(ms)		
+	2			54
+	5			51
+	7			55
+
+
+QUESTION 8: Compare the visual result to that of the box filter. Is the image LP-filtered with the weighted kernel noticeably better?
+
+Yes, is more similar due to the closest pixels have more weight.
+
+
+QUESTION 9: What was the difference in time to a box filter of the same size (5x5)?
+- 60. A bit more due to the extra multiplications. 
+
+QUESTION 10: If you want to make a weighted kernel customizable by weights from the host, how would you deliver the weights to the GPU?
+
+- using cudaMemCpy
+
+QUESTION 11: What kind of algorithm did you implement for finding the median?
+
+- count how many numbers are for each value of each color
+
+QUESTION 12: What filter size was best for reducing noise?
+
+- Gauss
+
